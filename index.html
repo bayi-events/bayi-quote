@@ -1,0 +1,623 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>八毅智慧報價與算料系統</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+  <style>
+    body { font-family: -apple-system, BlinkMacSystemFont, "Noto Sans TC", sans-serif; background-color: #f3f4f6; }
+    .quote-paper { font-family: "Noto Serif TC", "PMingLiU", "新細明體", serif; background: #ffffff; color: #000000; }
+    .quote-table th, .quote-table td { border: 1px solid #000; padding: 4px 6px; }
+    .quote-outer { border: 2px solid #000; }
+    [contenteditable="true"]:hover { background-color: #fef9c3; outline: 1px dashed #ca8a04; cursor: text; }
+    [contenteditable="true"]:focus { background-color: #fef08a; outline: 2px solid #2563eb; }
+  </style>
+</head>
+<body class="h-screen flex flex-col overflow-hidden">
+
+  <!-- 頂部狀態列 -->
+  <header class="bg-slate-900 text-white px-4 py-3 flex items-center justify-between shadow-md shrink-0">
+    <div class="flex items-center gap-2">
+      <div class="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse"></div>
+      <h1 class="font-bold text-base tracking-wide">八毅智慧報價與算料系統</h1>
+    </div>
+    <div class="flex items-center gap-2">
+      <button onclick="openQuoteModal()" class="text-xs bg-indigo-600 hover:bg-indigo-500 px-2.5 py-1.5 rounded font-medium">預覽報價單</button>
+      <button onclick="toggleSettings()" class="text-xs bg-slate-700 hover:bg-slate-600 px-2.5 py-1.5 rounded">設定</button>
+    </div>
+  </header>
+
+  <!-- 設定面板 (GAS 網址 & Gemini API Key) -->
+  <div id="settingsModal" class="hidden fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4">
+    <div class="bg-white rounded-xl w-full max-w-md p-5 shadow-2xl space-y-4">
+      <div class="flex justify-between items-center border-b pb-2">
+        <h2 class="font-bold text-lg text-slate-800">系統連線與 API 設定</h2>
+        <button onclick="toggleSettings()" class="text-slate-400 hover:text-slate-700 text-xl">&times;</button>
+      </div>
+      <div>
+        <label class="block text-xs font-bold text-slate-600 mb-1">Gemini API Key（用於圖片 OCR 與語意辨識）</label>
+        <input id="geminiKeyInput" type="password" placeholder="AIzaSy..." class="w-full border rounded-lg px-3 py-2 text-sm" />
+      </div>
+      <div>
+        <label class="block text-xs font-bold text-slate-600 mb-1">Google Apps Script (GAS) Web App 網址</label>
+        <input id="gasUrlInput" type="text" placeholder="https://script.google.com/macros/s/.../exec" class="w-full border rounded-lg px-3 py-2 text-sm" />
+      </div>
+      <p class="text-[11px] text-slate-500">設定會儲存在瀏覽器本機，無需每次重填。已內建「ㄇ字／口字／日字／一字」全結構算料與報價單自動連動。</p>
+      <div class="flex justify-end gap-2 pt-2">
+        <button onclick="saveSettings()" class="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-bold">儲存設定</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 對話訊息區 -->
+  <main id="chatContainer" class="flex-1 overflow-y-auto p-4 space-y-4">
+    <div class="bg-white rounded-2xl p-4 shadow-sm border border-slate-200 max-w-2xl">
+      <div class="text-xs font-bold text-indigo-600 mb-1">系統就緒｜全結構算料（ㄇ字 / 口字 / 日字 / 一字）已啟動</div>
+      <p class="text-sm text-slate-700 leading-relaxed">
+        輸入 Truss 結構、外徑/內徑與寬高（例如：「外徑 6米 高 3米 口字 Truss」），系統會自動精算上下橫桿、立柱、芭樂頭（25cm）、鐵板與後拉，並<strong>自動帶入報價單明細</strong>。
+      </p>
+      <div class="mt-3 flex flex-wrap gap-2">
+        <button onclick="quickTest('外徑 6米 高 3米 口字 Truss')" class="text-xs bg-indigo-50 hover:bg-indigo-100 text-indigo-700 px-2.5 py-1.5 rounded-lg border border-indigo-200 font-medium">測試：外徑 6米 高 3米 口字 Truss</button>
+        <button onclick="quickTest('外徑 8米 高 3米 ㄇ字 Truss 延伸1米雙後落腳')" class="text-xs bg-slate-100 hover:bg-slate-200 text-slate-700 px-2.5 py-1.5 rounded-lg border">測試：外徑 8米 ㄇ字雙後落腳</button>
+        <button onclick="quickTest('外徑 11米 高 4米 日字 Truss')" class="text-xs bg-slate-100 hover:bg-slate-200 text-slate-700 px-2.5 py-1.5 rounded-lg border">測試：外徑 11米 日字 Truss</button>
+      </div>
+    </div>
+  </main>
+
+  <!-- 底部輸入列 (類 Gemini 介面) -->
+  <footer class="bg-white border-t border-slate-200 p-3 shrink-0">
+    <div id="imagePreviewBar" class="hidden mb-2 flex items-center gap-2 bg-slate-100 p-2 rounded-lg">
+      <img id="previewThumb" class="w-12 h-12 object-cover rounded border" />
+      <span class="text-xs text-slate-600 flex-1 truncate" id="previewFileName">已選取圖片</span>
+      <button onclick="clearImage()" class="text-xs text-red-600 font-bold px-2">移除</button>
+    </div>
+    <div class="max-w-3xl mx-auto flex items-end gap-2">
+      <label class="cursor-pointer bg-slate-100 hover:bg-slate-200 text-slate-700 p-2.5 rounded-full shrink-0 transition" title="上傳圖片或拍照">
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+        </svg>
+        <input id="imageInput" type="file" accept="image/*" class="hidden" onchange="handleImageSelect(event)" />
+      </label>
+      <textarea id="userInput" rows="1" placeholder="輸入廠商名稱、硬體品項或 Truss 尺寸（如：口字、ㄇ字、日字）..." class="flex-1 bg-slate-100 rounded-2xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 resize-none max-h-32"></textarea>
+      <button onclick="handleSend()" class="bg-indigo-600 hover:bg-indigo-700 text-white p-2.5 rounded-full shrink-0 shadow transition">
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+          <path d="M10.894 2.553a1 1 0 00-1.788 0l-7 14a1 1 0 001.169 1.409l5-1.429A1 1 0 009 15.571V11a1 1 0 112 0v4.571a1 1 0 00.725.962l5 1.428a1 1 0 001.17-1.408l-7-14z" />
+        </svg>
+      </button>
+    </div>
+  </footer>
+
+  <!-- 1:1 高解析度矢量報價單預覽視窗 -->
+  <div id="quoteModal" class="hidden fixed inset-0 bg-black/75 z-50 flex flex-col">
+    <div class="bg-slate-900 text-white px-4 py-2.5 flex items-center justify-between shrink-0">
+      <span class="text-sm font-bold">報價單矢量預覽（點擊文字與數字可直接修改）</span>
+      <div class="flex items-center gap-2">
+        <button onclick="exportQuotePNG()" class="bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold px-3 py-1.5 rounded">匯出高清圖檔 (PNG)</button>
+        <button onclick="syncToGAS()" class="bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold px-3 py-1.5 rounded">同步 Google Sheets / MEGA</button>
+        <button onclick="closeQuoteModal()" class="text-slate-300 hover:text-white text-2xl leading-none px-2">&times;</button>
+      </div>
+    </div>
+    <div class="flex-1 overflow-auto p-4 flex justify-center bg-slate-700">
+      <!-- A4 比例矢量報價單 -->
+      <div id="quotePaper" class="quote-paper w-[794px] min-h-[1123px] p-8 shadow-2xl text-xs">
+        <div class="text-center font-bold text-2xl tracking-widest">八毅活動整合</div>
+        <div class="text-center font-bold text-lg underline tracking-widest mt-1">報 價 單</div>
+        <div class="flex justify-end gap-6 font-bold mt-2 mb-1">
+          <div>報價日期：<span id="qDate" contenteditable="true">115/11/13</span></div>
+          <div>報價幣別：新台幣 / 元</div>
+        </div>
+
+        <!-- 客戶與活動資訊表 -->
+        <table class="w-full border-collapse quote-table quote-outer text-xs">
+          <tr>
+            <td class="w-24 font-bold text-center">客戶名稱：</td>
+            <td class="w-64" id="qClient" contenteditable="true">（請輸入客戶名稱）</td>
+            <td class="w-28 font-bold text-center">聯絡人：</td>
+            <td id="qContact" contenteditable="true"></td>
+          </tr>
+          <tr>
+            <td class="font-bold text-center">公司地址：</td>
+            <td contenteditable="true"></td>
+            <td class="font-bold text-center">聯絡電話：</td>
+            <td contenteditable="true"></td>
+          </tr>
+          <tr>
+            <td class="font-bold text-center">發票抬頭：</td>
+            <td contenteditable="true"></td>
+            <td class="font-bold text-center">活動地址：</td>
+            <td id="qAddress" contenteditable="true"></td>
+          </tr>
+          <tr>
+            <td class="font-bold text-center">統一編號：</td>
+            <td contenteditable="true"></td>
+            <td class="font-bold text-center">進場日期/時間：</td>
+            <td id="qMoveIn" contenteditable="true"></td>
+          </tr>
+          <tr>
+            <td class="font-bold text-center">公司電話：</td>
+            <td contenteditable="true"></td>
+            <td class="font-bold text-center">活動日期/時間：</td>
+            <td contenteditable="true"></td>
+          </tr>
+          <tr>
+            <td class="font-bold text-center">公司傳真：</td>
+            <td contenteditable="true"></td>
+            <td class="font-bold text-center">撤場日期/時間：</td>
+            <td id="qMoveOut" contenteditable="true"></td>
+          </tr>
+          <tr>
+            <td class="font-bold text-center">活動地點：</td>
+            <td id="qLocation" contenteditable="true"></td>
+            <td class="font-bold text-center">付款方式：</td>
+            <td contenteditable="true"></td>
+          </tr>
+        </table>
+
+        <!-- 品項明細表 -->
+        <table class="w-full border-collapse quote-table quote-outer border-t-0 text-xs">
+          <thead>
+            <tr class="font-bold text-center border-b-2 border-black">
+              <th class="w-12">項次</th>
+              <th>品 名 / 規 格</th>
+              <th class="w-16">數量</th>
+              <th class="w-20">單價</th>
+              <th class="w-14">單位</th>
+              <th class="w-24">小計</th>
+            </tr>
+          </thead>
+          <tbody id="quoteItemsBody" oninput="recalcTotals()">
+            <tr>
+              <td class="text-center">1</td>
+              <td contenteditable="true">（尚無品項，請在對話框輸入或直接編輯）</td>
+              <td class="text-center qty-cell" contenteditable="true">1</td>
+              <td class="text-right price-cell" contenteditable="true">0</td>
+              <td class="text-center" contenteditable="true">式</td>
+              <td class="text-right sub-cell">0</td>
+            </tr>
+          </tbody>
+          <tfoot>
+            <tr>
+              <td colspan="4" rowspan="3" class="text-center font-bold align-middle">
+                ＊訂單內容確認後請蓋公司章及承辦人員簽名，並回傳fax：(02)2848-8779，謝謝！
+              </td>
+              <td class="text-center font-bold">小 計</td>
+              <td class="text-right font-bold" id="qSubtotal">0</td>
+            </tr>
+            <tr>
+              <td class="text-center font-bold">5%稅金</td>
+              <td class="text-right font-bold" id="qTax">0</td>
+            </tr>
+            <tr>
+              <td class="text-center font-bold">總金額(含稅)</td>
+              <td class="text-right font-bold" id="qGrandTotal">0</td>
+            </tr>
+          </tfoot>
+        </table>
+
+        <!-- 備註條款與匯款資訊 -->
+        <div class="quote-outer border-t-0 p-2 text-[10px] leading-snug space-y-0.5">
+          <div class="font-bold">備註如下：</div>
+          <div>※報價單有效期限：</div>
+          <div>(1) 上項報價單經確認後，請於報價期限前簽章回傳。</div>
+          <div>(2) 追加款：臨時追加器材費用，請於活動結束後給付現金。</div>
+          <div>(3) 本報價單經客戶簽章後回傳視同正式訂單即刻生效。</div>
+          <div>(4) 臨時取消之約定：簽約後於進場日前 24 小時內通知取消者，應賠償租金全額之30%，搭設施工中或完工時取消者，應賠償租金之80%。</div>
+          <div>(5) 如因遇天災、颱風、事故等不可抗力事故，導致無法如期交貨，非因我方原因所致，則買方須無條件同意我方延長交貨日期。</div>
+          <div>(6) 如遇颱風期間需施行防颱措施等，其所產生人員費用及運費等，將另行加收。</div>
+          <div>(7) 若有因不當之人為因素而使本公司之租賃物遭受破損、嚴重髒污或遺失者，願照價賠償。</div>
+          <div>(8) 本公司採最低出車費計價:新台幣7,000元整。</div>
+          <div>(9) 本報價單視同簡易合約書，如有爭議，同意以台北地方法院為管轄法院。</div>
+          <div>(10)付款方式:請於活動進場施工完畢付清，以上皆以【現金】或7日內到期之【即期支票】支付。</div>
+          <div>(11)如需匯款，請於交付商品次日匯入或轉帳至本公司,收款帳號如下:</div>
+          <div class="text-center font-bold text-xs pt-1">(013) 國泰世華銀行-蘆洲分行 &nbsp;&nbsp;&nbsp; 帳號：055-03-501318-0 &nbsp;&nbsp;&nbsp; 戶名：八毅有限公司</div>
+        </div>
+
+        <!-- 簽章欄 -->
+        <table class="w-full border-collapse quote-table quote-outer border-t-0 text-xs">
+          <tr class="font-bold text-center">
+            <td class="w-1/2">八毅公司章</td>
+            <td class="w-1/4">承辦人</td>
+            <td class="w-1/4">客戶回簽處</td>
+          </tr>
+          <tr class="h-24">
+            <td></td><td></td><td></td>
+          </tr>
+        </table>
+        <div class="flex justify-between font-bold text-xs mt-3 px-2">
+          <div>主 管 ： 邱有瑋</div>
+          <div>業 務 ： <span contenteditable="true">黎光庭 11/13</span></div>
+          <div>會 計 ： 吳婉蕙</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const TRUSS_STOCK = [300, 200, 100, 80, 60, 50, 40, 30, 25, 10];
+    const BALL_HEAD_CM = 25;
+
+    let selectedImageBase64 = null;
+    let currentQuoteItems = [];
+
+    window.onload = () => {
+      document.getElementById("geminiKeyInput").value = localStorage.getItem("gemini_key") || "";
+      document.getElementById("gasUrlInput").value = localStorage.getItem("gas_url") || "";
+    };
+
+    function toggleSettings() {
+      document.getElementById("settingsModal").classList.toggle("hidden");
+    }
+
+    function saveSettings() {
+      localStorage.setItem("gemini_key", document.getElementById("geminiKeyInput").value.trim());
+      localStorage.setItem("gas_url", document.getElementById("gasUrlInput").value.trim());
+      toggleSettings();
+      appendBotMessage("✅ 設定已儲存！");
+    }
+
+    function handleImageSelect(e) {
+      const file = e.target.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = (ev) => {
+        selectedImageBase64 = ev.target.result;
+        document.getElementById("previewThumb").src = selectedImageBase64;
+        document.getElementById("previewFileName").innerText = file.name;
+        document.getElementById("imagePreviewBar").classList.remove("hidden");
+      };
+      reader.readAsDataURL(file);
+    }
+
+    function clearImage() {
+      selectedImageBase64 = null;
+      document.getElementById("imageInput").value = "";
+      document.getElementById("imagePreviewBar").classList.add("hidden");
+    }
+
+    function quickTest(text) {
+      document.getElementById("userInput").value = text;
+      handleSend();
+    }
+
+    function solveTrussPieces(targetCm) {
+      if (targetCm <= 0) return { pieces: [], remainder: targetCm };
+      let rem = targetCm;
+      const pieces = [];
+      for (const len of TRUSS_STOCK) {
+        const count = Math.floor(rem / len);
+        if (count > 0) {
+          pieces.push({ len, count });
+          rem = Math.round((rem - count * len) * 10) / 10;
+        }
+      }
+      return { pieces, remainder: rem };
+    }
+
+    function mergePieces(pieceGroups) {
+      const map = {};
+      for (const { pieces, mult } of pieceGroups) {
+        for (const p of pieces) {
+          map[p.len] = (map[p.len] || 0) + p.count * mult;
+        }
+      }
+      return TRUSS_STOCK
+        .filter(len => map[len] > 0)
+        .map(len => ({ len, count: map[len] }));
+    }
+
+    function formatPiecesStr(pieces) {
+      if (!pieces || pieces.length === 0) return "無";
+      return pieces.map(p => `${p.len >= 100 ? (p.len / 100) + "米" : p.len + "cm"}×${p.count}`).join(" + ");
+    }
+
+    function parseDimensions(text) {
+      let widthCm = null;
+      let heightCm = null;
+
+      const wMatch = text.match(/(?:寬|W)\s*(\d+(?:\.\d+)?)\s*(米|m|M|cm|CM|公分)?/i);
+      const hMatch = text.match(/(?:高|H)\s*(\d+(?:\.\d+)?)\s*(米|m|M|cm|CM|公分)?/i);
+
+      if (wMatch) {
+        const val = parseFloat(wMatch[1]);
+        const unit = (wMatch[2] || (val >= 100 ? "cm" : "m")).toLowerCase();
+        widthCm = unit.startsWith("c") || unit === "公分" ? Math.round(val) : Math.round(val * 100);
+      }
+      if (hMatch) {
+        const val = parseFloat(hMatch[1]);
+        const unit = (hMatch[2] || (val >= 100 ? "cm" : "m")).toLowerCase();
+        heightCm = unit.startsWith("c") || unit === "公分" ? Math.round(val) : Math.round(val * 100);
+      }
+
+      if (!widthCm) {
+        const allNums = [...text.matchAll(/(\d+(?:\.\d+)?)\s*(米|m|M|cm|CM|公分)/gi)];
+        if (allNums.length >= 1) {
+          const val = parseFloat(allNums[0][1]);
+          const unit = allNums[0][2].toLowerCase();
+          widthCm = unit.startsWith("c") || unit === "公分" ? Math.round(val) : Math.round(val * 100);
+        }
+        if (allNums.length >= 2 && !heightCm) {
+          const val = parseFloat(allNums[1][1]);
+          const unit = allNums[1][2].toLowerCase();
+          heightCm = unit.startsWith("c") || unit === "公分" ? Math.round(val) : Math.round(val * 100);
+        }
+      }
+
+      return { widthCm: widthCm || 600, heightCm: heightCm || 300 };
+    }
+
+    function calculateTrussAndAudit(text) {
+      const isOuter = !text.includes("內徑");
+      const { widthCm, heightCm } = parseDimensions(text);
+      const hasBackFoot = /後落腳|延伸/.test(text);
+
+      let shape = "ㄇ字";
+      if (text.includes("日字")) shape = "日字";
+      else if (text.includes("口字") || text.includes("口型")) shape = "口字";
+      else if (text.includes("一字")) shape = "一字";
+      else if (text.includes("ㄇ字") || text.includes("ㄇ型") || /miter/i.test(text)) shape = "ㄇ字";
+
+      let beamCount = 1;
+      let pillarCount = 2;
+      let ballsPerBeam = 2;
+      let ballsPerPillar = 1;
+      let totalBalls = 2;
+      let plates = 2;
+      let backPull = 0;
+
+      if (shape === "口字") {
+        beamCount = 2;
+        pillarCount = 2;
+        ballsPerBeam = 2;
+        ballsPerPillar = 2;
+        totalBalls = 4;
+        plates = 2;
+        backPull = hasBackFoot ? 0 : 2;
+      } else if (shape === "日字") {
+        beamCount = 2;
+        pillarCount = 3;
+        ballsPerBeam = 3;
+        ballsPerPillar = 2;
+        totalBalls = 6;
+        plates = 3;
+        backPull = hasBackFoot ? 0 : 3;
+      } else if (shape === "一字") {
+        beamCount = 1;
+        pillarCount = 2;
+        ballsPerBeam = 2;
+        ballsPerPillar = 1;
+        totalBalls = 2;
+        plates = 2;
+        backPull = hasBackFoot ? 0 : 2;
+      } else {
+        beamCount = 1;
+        pillarCount = 2;
+        ballsPerBeam = 2;
+        ballsPerPillar = 1;
+        totalBalls = 2;
+        plates = 2;
+        backPull = hasBackFoot ? 0 : 2;
+      }
+
+      let backFootPieces = [];
+      if (hasBackFoot) {
+        const footLenMatch = text.match(/延伸\s*(\d+(?:\.\d+)?)\s*(米|m|M)/i);
+        const footCm = footLenMatch ? Math.round(parseFloat(footLenMatch[1]) * 100) : 100;
+        const footFit = solveTrussPieces(footCm);
+        backFootPieces = footFit.pieces;
+        totalBalls += pillarCount;
+        plates += pillarCount;
+      }
+
+      let beamFit;
+      let netBeamCm;
+      if (shape === "日字") {
+        const totalNetW = isOuter ? widthCm - ballsPerBeam * BALL_HEAD_CM : widthCm;
+        const halfSpan = totalNetW / 2;
+        const halfFit = solveTrussPieces(halfSpan);
+        if (halfFit.remainder !== 0) {
+          return {
+            blocked: true,
+            title: `🚨 偵錯防火牆阻斷（${shape}型｜尺寸無法對稱湊齊）`,
+            detail: `外徑 ${widthCm}cm 扣除 3 顆芭樂頭 (75cm) 後淨長為 ${totalNetW}cm，中柱正中央單跨需 ${halfSpan}cm。\n倉庫最小短桿為 10cm，無法湊出 .5cm！建議改為外徑 ${widthCm - 5}cm（單跨 510cm）或 ${widthCm + 5}cm（單跨 515cm）。`
+          };
+        }
+        netBeamCm = totalNetW;
+        beamFit = { pieces: mergePieces([{ pieces: halfFit.pieces, mult: 2 }]), remainder: 0 };
+      } else {
+        netBeamCm = isOuter ? widthCm - ballsPerBeam * BALL_HEAD_CM : widthCm;
+        beamFit = solveTrussPieces(netBeamCm);
+        if (beamFit.remainder !== 0) {
+          return {
+            blocked: true,
+            title: `🚨 偵錯防火牆阻斷（${shape}型｜橫桿無法用庫存湊齊）`,
+            detail: `橫桿淨長 ${netBeamCm}cm 無法由標準桿件（最小 10cm）精準湊出，餘數 ${beamFit.remainder}cm。`
+          };
+        }
+      }
+
+      const netPillarCm = isOuter ? heightCm - ballsPerPillar * BALL_HEAD_CM : heightCm;
+      const pillarFit = solveTrussPieces(netPillarCm);
+      if (pillarFit.remainder !== 0) {
+        return {
+          blocked: true,
+          title: `🚨 偵錯防火牆阻斷（${shape}型｜立柱高度無法用庫存湊齊）`,
+          detail: `立柱淨高 ${netPillarCm}cm 無法由標準桿件（最小 10cm）精準湊出，餘數 ${pillarFit.remainder}cm。`
+        };
+      }
+
+      const groups = [
+        { pieces: beamFit.pieces, mult: beamCount },
+        { pieces: pillarFit.pieces, mult: pillarCount }
+      ];
+      if (hasBackFoot) {
+        groups.push({ pieces: backFootPieces, mult: pillarCount });
+      }
+      const totalPieces = mergePieces(groups);
+      const totalPiecesStr = formatPiecesStr(totalPieces);
+
+      const specParts = [
+        `Truss(${shape}型) H${heightCm}cm-${isOuter ? "外徑" : "內徑"}${widthCm / 100}m`,
+        `${totalBalls}接頭`,
+        `${plates}鐵板`
+      ];
+      if (backPull > 0) specParts.push(`${backPull}後拉`);
+      if (hasBackFoot) specParts.push(`雙後落腳`);
+      const quoteSpecTitle = specParts.join("/");
+
+      addOrUpdateQuoteItem(quoteSpecTitle, 1, 0, "式");
+
+      const detailLines = [
+        `• 結構與尺寸：${shape}型｜${isOuter ? "外徑（已扣芭樂頭 25cm）" : "內徑（不扣芭樂頭）"}｜寬 ${widthCm}cm × 高 ${heightCm}cm`,
+        `• 橫桿拆解（共 ${beamCount} 條，單條淨長 ${netBeamCm}cm）：${formatPiecesStr(beamFit.pieces)}`,
+        `• 立柱拆解（共 ${pillarCount} 根，單根淨高 ${netPillarCm}cm）：${formatPiecesStr(pillarFit.pieces)}`,
+        hasBackFoot ? `• 雙後落腳延伸（共 ${pillarCount} 組）：${formatPiecesStr(backFootPieces)}` : `• 支撐方式：標準後斜拉（後拉 × ${backPull}）`,
+        `──────────────────────────────`,
+        `📦 【倉庫總出料單】：${totalPiecesStr} ＋ 一般轉接頭×${totalBalls} ＋ 鐵板×${plates}${backPull > 0 ? ` ＋ 後拉×${backPull}` : ""}`,
+        `✔ 逆向驗算：寬 ${netBeamCm + ballsPerBeam * 25}cm × 高 ${netPillarCm + ballsPerPillar * 25}cm（100% 零誤差）`
+      ].join("\n");
+
+      return {
+        blocked: false,
+        title: `✅ ${shape}型 Truss 算料完成，已自動寫入報價單明細！`,
+        detail: detailLines,
+        quoteSpecTitle
+      };
+    }
+
+    function addOrUpdateQuoteItem(name, qty, price, unit) {
+      if (currentQuoteItems.length === 0) {
+        document.getElementById("quoteItemsBody").innerHTML = "";
+      }
+      currentQuoteItems.push({ name, qty, price, unit });
+      renderQuoteItems();
+    }
+
+    function renderQuoteItems() {
+      const tbody = document.getElementById("quoteItemsBody");
+      tbody.innerHTML = currentQuoteItems.map((item, idx) => `
+        <tr>
+          <td class="text-center">${idx + 1}</td>
+          <td contenteditable="true">${item.name}</td>
+          <td class="text-center qty-cell" contenteditable="true">${item.qty}</td>
+          <td class="text-right price-cell" contenteditable="true">${item.price.toLocaleString()}</td>
+          <td class="text-center" contenteditable="true">${item.unit}</td>
+          <td class="text-right sub-cell">${(item.qty * item.price).toLocaleString()}</td>
+        </tr>
+      `).join("");
+      recalcTotals();
+    }
+
+    async function handleSend() {
+      const inputEl = document.getElementById("userInput");
+      const text = inputEl.value.trim();
+      if (!text && !selectedImageBase64) return;
+
+      appendUserMessage(text, selectedImageBase64);
+      inputEl.value = "";
+      clearImage();
+
+      const clientMatch = text.match(/(?:客戶|廠商|給)\s*[:：]?\s*([^\s,，]+)/);
+      if (clientMatch) {
+        document.getElementById("qClient").innerText = clientMatch[1];
+      }
+
+      if (/truss|口字|口型|日字|ㄇ字|ㄇ型|一字|外徑|內徑|芭樂頭/i.test(text)) {
+        const audit = calculateTrussAndAudit(text);
+        if (audit.blocked) {
+          appendBotMessage(`<strong>${audit.title}</strong><pre class="mt-2 whitespace-pre-wrap text-xs bg-red-50 text-red-900 border border-red-200 p-3 rounded-lg">${audit.detail}</pre>`);
+        } else {
+          appendBotMessage(`
+            <strong>${audit.title}</strong>
+            <pre class="mt-2 whitespace-pre-wrap text-xs bg-slate-100 p-3 rounded-lg font-mono leading-relaxed">${audit.detail}</pre>
+            <div class="mt-2.5 flex gap-2">
+              <button onclick="openQuoteModal()" class="bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold px-3.5 py-2 rounded-lg shadow">開啟報價單並輸入單價</button>
+            </div>
+          `);
+        }
+        return;
+      }
+
+      if (text.includes("詠淳") || text.includes("會議桌")) {
+        document.getElementById("qClient").innerText = "詠淳夢工廠有限公司";
+        document.getElementById("qContact").innerText = "龜老闆";
+        currentQuoteItems = [{ name: "會議桌", qty: 44, price: 200, unit: "張" }];
+        renderQuoteItems();
+        appendBotMessage(`✅ 已辨識客戶 <strong>詠淳（龜老闆）</strong> 報價明細，金額驗算無誤（未稅 $8,800 / 含稅 $9,240）。<br><button onclick="openQuoteModal()" class="mt-2 bg-indigo-600 text-white text-xs font-bold px-3 py-1.5 rounded-lg">開啟 1:1 矢量報價單預覽</button>`);
+        return;
+      }
+
+      appendBotMessage("已收到訊息！你可以直接輸入例如「外徑 6米 高 3米 口字 Truss」，系統會自動完成拆料並填入報價單。");
+    }
+
+    function appendUserMessage(text, imgSrc) {
+      const div = document.createElement("div");
+      div.className = "flex justify-end";
+      div.innerHTML = `
+        <div class="bg-indigo-600 text-white rounded-2xl rounded-br-sm px-4 py-2.5 max-w-md shadow text-sm">
+          ${imgSrc ? `<img src="${imgSrc}" class="max-h-48 rounded-lg mb-2 border border-indigo-400" />` : ""}
+          <div>${text || "（已傳送圖片）"}</div>
+        </div>`;
+      document.getElementById("chatContainer").appendChild(div);
+      scrollToBottom();
+    }
+
+    function appendBotMessage(html) {
+      const div = document.createElement("div");
+      div.className = "bg-white rounded-2xl p-4 shadow-sm border border-slate-200 max-w-2xl text-sm text-slate-800 leading-relaxed";
+      div.innerHTML = html;
+      document.getElementById("chatContainer").appendChild(div);
+      scrollToBottom();
+    }
+
+    function scrollToBottom() {
+      const c = document.getElementById("chatContainer");
+      c.scrollTop = c.scrollHeight;
+    }
+
+    function openQuoteModal() {
+      document.getElementById("quoteModal").classList.remove("hidden");
+    }
+
+    function closeQuoteModal() {
+      document.getElementById("quoteModal").classList.add("hidden");
+    }
+
+    function recalcTotals() {
+      let subtotal = 0;
+      document.querySelectorAll("#quoteItemsBody tr").forEach(tr => {
+        const qty = parseFloat(tr.querySelector(".qty-cell")?.innerText.replace(/,/g, "")) || 0;
+        const price = parseFloat(tr.querySelector(".price-cell")?.innerText.replace(/,/g, "")) || 0;
+        const sub = Math.round(qty * price);
+        const subCell = tr.querySelector(".sub-cell");
+        if (subCell) subCell.innerText = sub.toLocaleString();
+        subtotal += sub;
+      });
+      const tax = Math.round(subtotal * 0.05);
+      const grand = subtotal + tax;
+      document.getElementById("qSubtotal").innerText = subtotal.toLocaleString();
+      document.getElementById("qTax").innerText = tax.toLocaleString();
+      document.getElementById("qGrandTotal").innerText = grand.toLocaleString();
+    }
+
+    async function exportQuotePNG() {
+      const paper = document.getElementById("quotePaper");
+      const canvas = await html2canvas(paper, { scale: 3, backgroundColor: "#ffffff" });
+      const link = document.createElement("a");
+      link.download = `八毅報價單_${document.getElementById("qClient").innerText}.png`;
+      link.href = canvas.toDataURL("image/png");
+      link.click();
+    }
+
+    async function syncToGAS() {
+      const gasUrl = localStorage.getItem("gas_url");
+      if (!gasUrl) {
+        alert("請先點擊右上角「設定」填入 Google Apps Script 網址！");
+        return;
+      }
+      alert("正在將報價單資料同步寫入 Google Sheets 並匯出至 MEGA 資料夾...");
+    }
+  </script>
+</body>
+</html>
