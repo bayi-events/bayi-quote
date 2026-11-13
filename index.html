@@ -69,14 +69,14 @@
         <button onclick="toggleSettings()" class="text-slate-400 hover:text-slate-700 text-2xl leading-none">&times;</button>
       </div>
       <div>
-        <label class="block text-xs font-bold text-slate-600 mb-1">Gemini API Key（用於圖片 OCR 與語意辨識）</label>
+        <label class="block text-xs font-bold text-slate-600 mb-1">Gemini API Key（用於圖片 OCR 與複雜語意辨識）</label>
         <input id="geminiKeyInput" type="password" placeholder="AIzaSy..." class="w-full border rounded-lg px-3 py-2 text-sm" />
       </div>
       <div>
         <label class="block text-xs font-bold text-slate-600 mb-1">Google Apps Script (GAS) Web App 網址</label>
         <input id="gasUrlInput" type="text" placeholder="https://script.google.com/macros/s/.../exec" class="w-full border rounded-lg px-3 py-2 text-sm" />
       </div>
-      <p class="text-[11px] text-slate-500">設定會儲存在手機瀏覽器本機，無需每次重填。</p>
+      <p class="text-[11px] text-slate-500">設定會儲存在手機瀏覽器本機，無需每次重填。文字報價明細與 Truss 算料無需 Key 即可離線秒算。</p>
       <div class="flex justify-end gap-2 pt-2">
         <button onclick="saveSettings()" class="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-bold">儲存設定</button>
       </div>
@@ -86,9 +86,9 @@
   <!-- 中間可捲動對話區 -->
   <main id="chatContainer" class="flex-1 min-h-0 overflow-y-auto p-3 sm:p-4 space-y-3">
     <div class="bg-white rounded-2xl p-3.5 shadow-sm border border-slate-200 max-w-2xl">
-      <div class="text-xs font-bold text-indigo-600 mb-1">系統就緒｜手機自適應版型 &amp; 1:1 正式報價單</div>
+      <div class="text-xs font-bold text-indigo-600 mb-1">系統就緒｜智慧明細解析 &amp; Truss 全結構算料</div>
       <p class="text-xs sm:text-sm text-slate-700 leading-relaxed">
-        請在下方輸入框打字或上傳圖片，支援<strong>口字／日字／ㄇ字／一字</strong> Truss 算料（外徑自動扣芭樂頭 25cm），並自動填入<strong>12 列標準報價單</strong>。
+        直接貼上<strong>客戶活動明細</strong>（自動拆解品項/單價/進撤場時間並驗算總額），或輸入<strong>口字／日字／ㄇ字／一字</strong> Truss 尺寸，一鍵生成 1:1 正式報價單。
       </p>
       <div class="mt-2.5 flex flex-wrap gap-1.5">
         <button onclick="quickTest('外徑 6米 高 3米 口字 Truss')" class="text-xs bg-indigo-50 text-indigo-700 px-2.5 py-1.5 rounded-lg border border-indigo-200 font-medium">測試：6×3米 口字 Truss</button>
@@ -98,21 +98,21 @@
     </div>
   </main>
 
-  <!-- 底部固定輸入列 (使用 100dvh + safe-area 確保手機端 100% 可見不被遮擋) -->
+  <!-- 底部固定輸入列 -->
   <footer class="bg-white border-t border-slate-300 px-3 pt-2 safe-pb shrink-0 z-20 shadow-[0_-2px_10px_rgba(0,0,0,0.06)]">
     <div id="imagePreviewBar" class="hidden mb-2 flex items-center gap-2 bg-slate-100 p-2 rounded-lg">
       <img id="previewThumb" class="w-11 h-11 object-cover rounded border" />
       <span class="text-xs text-slate-600 flex-1 truncate" id="previewFileName">已選取圖片</span>
       <button onclick="clearImage()" class="text-xs text-red-600 font-bold px-2">移除</button>
     </div>
-    <div class="max-w-3xl mx-auto flex items-center gap-2">
+    <div class="max-w-3xl mx-auto flex items-end gap-2">
       <label class="cursor-pointer bg-slate-100 active:bg-slate-200 text-slate-700 p-2.5 rounded-full shrink-0 border border-slate-200" title="上傳圖片或拍照">
         <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
         </svg>
         <input id="imageInput" type="file" accept="image/*" class="hidden" onchange="handleImageSelect(event)" />
       </label>
-      <input id="userInput" type="text" enterkeyhint="send" onkeydown="if(event.key==='Enter') handleSend()" placeholder="輸入客戶、品項或 Truss 尺寸..." class="flex-1 min-w-0 bg-slate-100 border border-slate-300 rounded-full px-4 py-2.5 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white" />
+      <textarea id="userInput" rows="1" placeholder="貼上客戶報價文字或輸入 Truss 尺寸..." class="flex-1 min-w-0 bg-slate-100 border border-slate-300 rounded-2xl px-4 py-2.5 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white resize-none max-h-28"></textarea>
       <button onclick="handleSend()" class="bg-indigo-600 active:bg-indigo-700 text-white p-2.5 rounded-full shrink-0 shadow">
         <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
           <path d="M10.894 2.553a1 1 0 00-1.788 0l-7 14a1 1 0 001.169 1.409l5-1.429A1 1 0 009 15.571V11a1 1 0 112 0v4.571a1 1 0 00.725.962l5 1.428a1 1 0 001.17-1.408l-7-14z" />
@@ -132,22 +132,17 @@
       <button onclick="closeQuoteModal()" class="text-slate-300 hover:text-white text-2xl leading-none px-2">&times;</button>
     </div>
 
-    <!-- 手機端自動縮放包裝區（允許雙指放大檢視） -->
     <div id="quoteScrollWrapper" class="flex-1 overflow-auto bg-slate-700 p-2 sm:p-4 flex justify-center items-start">
       <div id="quoteScaleContainer" style="transform-origin: top center;">
-        <!-- A4 比例 1:1 復刻八毅活動整合報價單 -->
         <div id="quotePaper" class="quote-paper w-[794px] bg-white p-7 shadow-2xl text-[12px] leading-normal">
-          <!-- 表頭公司名稱與標題 -->
           <div class="text-center font-bold text-[24px] tracking-[0.2em]">八毅活動整合</div>
           <div class="text-center font-bold text-[18px] underline underline-offset-4 tracking-[0.25em] mt-0.5">報 價 單</div>
 
-          <!-- 報價日期與幣別（完全對齊原版位置） -->
           <div class="flex justify-end items-center gap-8 font-bold text-[12px] mt-2 mb-1 pr-1">
             <div>報 價 日 期 ： <span id="qDate" contenteditable="true">115/11/13</span></div>
             <div>報價幣別：新台幣 / 元</div>
           </div>
 
-          <!-- 客戶與活動基本資料表（7列雙欄） -->
           <table class="quote-table quote-outer border-b-0 text-[12px]">
             <tr>
               <td class="w-[105px] font-bold text-center">客 戶 名 稱 ：</td>
@@ -193,7 +188,6 @@
             </tr>
           </table>
 
-          <!-- 品項明細表（固定顯示 12 列，與原版完全一致） -->
           <table class="quote-table quote-outer border-t-2 border-t-black text-[12px]">
             <thead>
               <tr class="font-bold text-center border-b-2 border-b-black h-[28px]">
@@ -206,7 +200,6 @@
               </tr>
             </thead>
             <tbody id="quoteItemsBody" oninput="recalcTotals()">
-              <!-- 由 JS 動態渲染固定 12 列 -->
             </tbody>
             <tfoot>
               <tr class="border-t-2 border-t-black">
@@ -227,7 +220,6 @@
             </tfoot>
           </table>
 
-          <!-- 備註條款與匯款帳號（一字不差還原） -->
           <div class="quote-outer border-t-0 px-2 py-1.5 text-[10.5px] leading-[1.42]">
             <div class="font-bold">備註如下：</div>
             <div>※報價單有效期限：</div>
@@ -247,7 +239,6 @@
             </div>
           </div>
 
-          <!-- 簽章框（八毅公司章 / 承辦人 / 客戶回簽處） -->
           <table class="quote-table quote-outer border-t-0 text-[12px]">
             <tr class="font-bold text-center h-[26px]">
               <td class="w-[450px]">八毅公司章</td>
@@ -261,7 +252,6 @@
             </tr>
           </table>
 
-          <!-- 底部簽核人員 -->
           <div class="flex justify-between font-bold text-[13px] mt-3 px-4">
             <div>主 &nbsp; 管 &nbsp; ： &nbsp; 邱有瑋</div>
             <div>業 &nbsp; 務 ： <span id="qSalesSign" contenteditable="true">黎光庭11/13</span></div>
@@ -275,11 +265,11 @@
   <script>
     const TRUSS_STOCK = [300, 200, 100, 80, 60, 50, 40, 30, 25, 10];
     const BALL_HEAD_CM = 25;
-    const FIXED_ROWS = 12; // 固定 12 列空白行，完全比照原版報價單版型
+    const MIN_ROWS = 12;
 
     let selectedImageBase64 = null;
     let currentQuoteItems = [];
-    let includeTax = false; // 預設比照蘇益和里長報價單（5%稅金空白，總金額=總價），可一鍵切換含稅
+    let includeTax = false;
 
     window.onload = () => {
       document.getElementById("geminiKeyInput").value = localStorage.getItem("gemini_key") || "";
@@ -297,7 +287,8 @@
       const availW = wrapper.clientWidth - 16;
       const scale = availW < 794 ? (availW / 794) : 1;
       container.style.transform = `scale(${scale})`;
-      container.style.height = `${1123 * scale}px`;
+      const paperH = document.getElementById("quotePaper").offsetHeight || 1123;
+      container.style.height = `${paperH * scale}px`;
     }
 
     function toggleSettings() {
@@ -335,6 +326,102 @@
       handleSend();
     }
 
+    // 智慧推斷硬體單位
+    function inferUnit(name) {
+      if (/屋型帳|帝王帳|宮廷帳|阿里山帳|圓拱帳|帳篷|帳$/.test(name) && !/圍布|吊扇|燈/.test(name)) return "頂";
+      if (/圍布|桌巾|紅毯/.test(name)) return "件";
+      if (/圓桌|會議桌|長桌|洽談桌/.test(name)) return "張";
+      if (/椅/.test(name)) return "張";
+      if (/圍欄|紅龍|旗座|吊扇/.test(name)) return "支";
+      if (/燈/.test(name)) return "盞";
+      if (/加班|運費|施工|音響|舞台/.test(name)) return "式";
+      return "組";
+    }
+
+    // 通用多品項活動報價單解析器（支援單行連寫或換行編號：1. 品名 *數量 / $單價×數量=$小計）
+    function parseGeneralQuoteText(rawText) {
+      const text = rawText.replace(/：/g, ":").replace(/＊/g, "*");
+
+      // 1. 提取標頭資訊（第一項 "1." 之前的文字）
+      const firstItemIdx = text.search(/(?:^|\s)1[\.、\)]\s*/);
+      const headerStr = firstItemIdx > 0 ? text.slice(0, firstItemIdx).trim() : "";
+      const bodyStr = firstItemIdx >= 0 ? text.slice(firstItemIdx) : text;
+
+      if (headerStr) {
+        // 進撤場時間匹配（如：11/9 (全天) 進 11/11 22:00撤）
+        const moveInMatch = headerStr.match(/(\d{1,2}\/\d{1,2}\s*(?:\([^)]+\)|[\d:]+)?\s*進)/);
+        const moveOutMatch = headerStr.match(/(\d{1,2}\/\d{1,2}\s*(?:\([^)]+\)|[\d:]+)?\s*撤)/);
+        if (moveInMatch) document.getElementById("qMoveIn").innerText = moveInMatch[1].trim();
+        if (moveOutMatch) document.getElementById("qMoveOut").innerText = moveOutMatch[1].trim();
+
+        // 切出日期之前的客戶/聯絡人/地點片段
+        const beforeDate = headerStr.split(/\d{1,2}\/\d{1,2}/)[0].trim();
+        const tokens = beforeDate.split(/\s+/).filter(Boolean);
+        if (tokens.length >= 1) document.getElementById("qClient").innerText = tokens[0];
+        if (tokens.length >= 2) document.getElementById("qContact").innerText = tokens[1];
+        if (tokens.length >= 3) document.getElementById("qLocation").innerText = tokens.slice(2).join(" ");
+      }
+
+      // 2. 提取聲明總金額（供防呆比對）
+      const statedTotalMatch = text.match(/總金額\s*[:=]?\s*\$?\s*([\d,]+)/);
+      const statedTotal = statedTotalMatch ? parseInt(statedTotalMatch[1].replace(/,/g, ""), 10) : null;
+
+      // 3. 切分編號項目（1. ... 2. ... 10. ...）
+      const cleanBody = bodyStr.replace(/總金額.*$/, "").trim();
+      const rawChunks = cleanBody.split(/(?:^|\s+)(?=\d{1,2}[\.、\)])/).map(s => s.trim()).filter(Boolean);
+
+      const items = [];
+      for (const chunk of rawChunks) {
+        // 去掉開頭編號 "1." 或 "10."
+        const line = chunk.replace(/^\d{1,2}[\.、\)]\s*/, "").trim();
+        if (!line) continue;
+
+        const parts = line.split("/");
+        let namePart = parts[0].trim();
+        const pricePart = parts.slice(1).join("/").trim();
+
+        let qty = 1;
+        let unit = "";
+        let price = 0;
+
+        // 從品名部分抓 *數量+單位（例如：*5頂、*1頂、*12件、*62、*45張、*40張、*20支）
+        const qtyMatch = namePart.match(/\*(\d+(?:\.\d+)?)\s*([頂件張支盞組式台顆片格條根米mM]?)/);
+        if (qtyMatch) {
+          qty = parseFloat(qtyMatch[1]);
+          unit = qtyMatch[2] || "";
+          namePart = namePart.replace(qtyMatch[0], "").trim();
+        } else {
+          // 若品名沒寫 *數量，但裡面有 "8組" 等字樣
+          const inlineQtyMatch = namePart.match(/(\d+)\s*(組|頂|件|張|支|盞|台|格)$/);
+          if (inlineQtyMatch) {
+            qty = parseFloat(inlineQtyMatch[1]);
+            unit = inlineQtyMatch[2];
+          }
+        }
+
+        // 解析價格部分（例如：$4000×5=$20000元 或 $600元 或 $100×12=$1200元 或 $3000元）
+        if (pricePart) {
+          const multMatch = pricePart.match(/\$?\s*([\d,]+)\s*[×xX\*]\s*(\d+(?:\.\d+)?)/);
+          if (multMatch) {
+            price = parseFloat(multMatch[1].replace(/,/g, ""));
+            if (!qtyMatch) qty = parseFloat(multMatch[2]);
+          } else {
+            const singlePriceMatch = pricePart.match(/\$?\s*([\d,]+)/);
+            if (singlePriceMatch) {
+              const totalVal = parseFloat(singlePriceMatch[1].replace(/,/g, ""));
+              price = qty > 1 ? Math.round(totalVal / qty) : totalVal;
+            }
+          }
+        }
+
+        if (!unit) unit = inferUnit(namePart);
+        items.push({ name: namePart, qty, price, unit });
+      }
+
+      return { items, statedTotal };
+    }
+
+    // Truss 算料引擎
     function solveTrussPieces(targetCm) {
       if (targetCm <= 0) return { pieces: [], remainder: targetCm };
       let rem = targetCm;
@@ -356,9 +443,7 @@
           map[p.len] = (map[p.len] || 0) + p.count * mult;
         }
       }
-      return TRUSS_STOCK
-        .filter(len => map[len] > 0)
-        .map(len => ({ len, count: map[len] }));
+      return TRUSS_STOCK.filter(len => map[len] > 0).map(len => ({ len, count: map[len] }));
     }
 
     function formatPiecesStr(pieces) {
@@ -367,11 +452,9 @@
     }
 
     function parseDimensions(text) {
-      let widthCm = null;
-      let heightCm = null;
+      let widthCm = null, heightCm = null;
       const wMatch = text.match(/(?:寬|W)\s*(\d+(?:\.\d+)?)\s*(米|m|M|cm|CM|公分)?/i);
       const hMatch = text.match(/(?:高|H)\s*(\d+(?:\.\d+)?)\s*(米|m|M|cm|CM|公分)?/i);
-
       if (wMatch) {
         const val = parseFloat(wMatch[1]);
         const unit = (wMatch[2] || (val >= 100 ? "cm" : "m")).toLowerCase();
@@ -382,7 +465,6 @@
         const unit = (hMatch[2] || (val >= 100 ? "cm" : "m")).toLowerCase();
         heightCm = unit.startsWith("c") || unit === "公分" ? Math.round(val) : Math.round(val * 100);
       }
-
       if (!widthCm) {
         const allNums = [...text.matchAll(/(\d+(?:\.\d+)?)\s*(米|m|M|cm|CM|公分)/gi)];
         if (allNums.length >= 1) {
@@ -503,11 +585,11 @@
       };
     }
 
-    // 固定渲染 12 列（完全比照蘇益和里長正式報價單表格結構）
     function renderQuoteItems() {
       const tbody = document.getElementById("quoteItemsBody");
+      const rowCount = Math.max(MIN_ROWS, currentQuoteItems.length);
       let html = "";
-      for (let i = 0; i < FIXED_ROWS; i++) {
+      for (let i = 0; i < rowCount; i++) {
         const item = currentQuoteItems[i];
         if (item) {
           const sub = Math.round(item.qty * item.price);
@@ -575,6 +657,7 @@
       inputEl.value = "";
       clearImage();
 
+      // 1. 蘇益和里長預設範本
       if (text.includes("蘇益和")) {
         document.getElementById("qDate").innerText = "115/8/27";
         document.getElementById("qClient").innerText = "蘇益和里長";
@@ -598,7 +681,8 @@
         return;
       }
 
-      if (/truss|口字|口型|日字|ㄇ字|ㄇ型|一字|外徑|內徑|芭樂頭/i.test(text)) {
+      // 2. Truss 結構算料（優先檢查，避免與一般清單混淆）
+      if (/truss|口字|口型|日字|ㄇ字|ㄇ型|一字|外徑|內徑|芭樂頭/i.test(text) && !/1[\.、]/.test(text)) {
         const audit = calculateTrussAndAudit(text);
         if (audit.blocked) {
           appendBotMessage(`<strong>${audit.title}</strong><pre class="mt-2 whitespace-pre-wrap text-xs bg-red-50 text-red-900 border border-red-200 p-2.5 rounded-lg">${audit.detail}</pre>`);
@@ -612,7 +696,34 @@
         return;
       }
 
-      appendBotMessage("已收到！你可以直接點選「測試：6×3米 口字 Truss」或「測試：蘇益和里長報價單」查看新版手機排版與 1:1 報價單格式。");
+      // 3. 通用硬體報價清單解析（如：1. 3×6屋型帳 *5頂 / $4000×5=$20000元 ...）
+      if (/1[\.、\)]/.test(text) || /\$\d+/.test(text) || /\*\d+/.test(text)) {
+        const { items, statedTotal } = parseGeneralQuoteText(text);
+        if (items.length > 0) {
+          currentQuoteItems = items;
+          includeTax = false;
+          document.getElementById("taxToggleBtn").innerText = "稅金：未稅(0)";
+          renderQuoteItems();
+
+          const calcSum = items.reduce((acc, it) => acc + Math.round(it.qty * it.price), 0);
+          let auditBanner = `<div class="text-emerald-700 font-bold">✅ 共辨識 ${items.length} 項明細，總金額驗算無誤：$${calcSum.toLocaleString()}</div>`;
+          if (statedTotal !== null && statedTotal !== calcSum) {
+            auditBanner = `<div class="text-red-600 font-bold bg-red-50 border border-red-200 p-2 rounded">⚠️ 金額異常警告：文字標示總金額為 $${statedTotal.toLocaleString()}，但逐項加總實為 $${calcSum.toLocaleString()}（差額 $${Math.abs(statedTotal - calcSum).toLocaleString()}）！</div>`;
+          }
+
+          const summaryList = items.map((it, idx) => `${idx + 1}. ${it.name}｜${it.qty}${it.unit} × $${it.price.toLocaleString()} = $${(it.qty * it.price).toLocaleString()}`).join("\n");
+
+          appendBotMessage(`
+            ${auditBanner}
+            <div class="text-xs text-slate-600 mt-1">客戶：<strong>${document.getElementById("qClient").innerText || "未指定"}</strong>｜聯絡人：<strong>${document.getElementById("qContact").innerText || "-"}</strong>｜地點：<strong>${document.getElementById("qLocation").innerText || "-"}</strong></div>
+            <pre class="mt-2 whitespace-pre-wrap text-[11px] bg-slate-100 p-2.5 rounded-lg font-mono leading-relaxed">${summaryList}</pre>
+            <button onclick="openQuoteModal()" class="mt-2 bg-indigo-600 text-white text-xs font-bold px-3.5 py-2 rounded-lg shadow">開啟 1:1 正式報價單預覽</button>
+          `);
+          return;
+        }
+      }
+
+      appendBotMessage("已收到！請輸入包含編號與金額的明細（例如「1. 3×6屋型帳 *5頂 / $4000×5=$20000元」），或輸入 Truss 結構尺寸。");
     }
 
     function appendUserMessage(text, imgSrc) {
@@ -621,7 +732,7 @@
       div.innerHTML = `
         <div class="bg-indigo-600 text-white rounded-2xl rounded-br-sm px-3.5 py-2 max-w-[85%] shadow text-xs sm:text-sm">
           ${imgSrc ? `<img src="${imgSrc}" class="max-h-44 rounded-lg mb-1.5 border border-indigo-400" />` : ""}
-          <div>${text || "（已傳送圖片）"}</div>
+          <div class="whitespace-pre-wrap">${text || "（已傳送圖片）"}</div>
         </div>`;
       document.getElementById("chatContainer").appendChild(div);
       scrollToBottom();
